@@ -454,6 +454,18 @@ struct SSHKeyExchangeStateMachine {
             }
         }
 
+        // Then anything the application registered. Ours are preferred: a
+        // registration cannot quietly displace a bundled algorithm of the same
+        // name.
+        for implementation in customKeyExchangeAlgorithms {
+            if implementation.keyExchangeAlgorithmNames.contains(algorithm) {
+                return implementation.makeKeyExchanger(
+                    ourRole: self.role,
+                    previousSessionIdentifier: self.previousSessionIdentifier
+                )
+            }
+        }
+
         // Huh, we didn't find it. Weird error.
         throw NIOSSHError.keyExchangeNegotiationFailure
     }
@@ -505,10 +517,23 @@ extension SSHKeyExchangeStateMachine {
         EllipticCurveKeyExchange<Curve25519.KeyAgreement.PrivateKey>.self,
     ]
 
-    static let supportedKeyExchangeAlgorithms: [Substring] = supportedKeyExchangeImplementations.flatMap { $0.keyExchangeAlgorithmNames }
+    /// What we offer, in preference order: our own first, then whatever the
+    /// application registered. Computed rather than stored, because
+    /// registration happens at run time — a `let` here would capture the list
+    /// before the application had said anything.
+    static var supportedKeyExchangeAlgorithms: [Substring] {
+        supportedKeyExchangeImplementations.flatMap { $0.keyExchangeAlgorithmNames }
+            + customKeyExchangeAlgorithms.flatMap { $0.keyExchangeAlgorithmNames }
+    }
 
-    /// All known host key algorithms.
-    static let supportedServerHostKeyAlgorithms: [Substring] = ["ssh-ed25519", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp521"]
+    static let bundledServerHostKeyAlgorithms: [Substring] = ["ssh-ed25519", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp521"]
+
+    /// All known host key algorithms, including registered ones — without this
+    /// a server presenting an RSA host key cannot be talked to, which is the
+    /// commonest reason to register anything at all.
+    static var supportedServerHostKeyAlgorithms: [Substring] {
+        bundledServerHostKeyAlgorithms + customPublicKeyAlgorithms.map { Substring($0.publicKeyPrefix) }
+    }
 }
 
 extension SSHKeyExchangeStateMachine {
