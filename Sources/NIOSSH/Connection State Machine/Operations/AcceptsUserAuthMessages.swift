@@ -60,7 +60,7 @@ extension AcceptsUserAuthMessages {
         }
     }
 
-    mutating func receiveUserAuthRequest(_ message: SSHMessage.UserAuthRequestMessage) throws -> SSHConnectionStateMachine.StateMachineInboundProcessResult {
+    mutating func receiveUserAuthRequest(_ message: SSHMessage.UserAuthRequestMessage, connectionAttributes: SSHConnectionStateMachine.Attributes) throws -> SSHConnectionStateMachine.StateMachineInboundProcessResult {
         let result = try self.userAuthStateMachine.receiveUserAuthRequest(message)
 
         if let future = result {
@@ -71,7 +71,8 @@ extension AcceptsUserAuthMessages {
                 banner = nil
             }
 
-            return .possibleFutureMessage(future.map { Self.transform($0, banner: banner) })
+            let username = message.username
+            return .possibleFutureMessage(future.map { Self.transform($0, connectionAttributes: connectionAttributes, username: username, banner: banner) })
         } else {
             return .noMessage
         }
@@ -102,9 +103,13 @@ extension AcceptsUserAuthMessages {
         return .event(NIOUserAuthBannerEvent(message: message.message, languageTag: message.languageTag))
     }
 
-    private static func transform(_ result: NIOSSHUserAuthenticationResponseMessage, banner: SSHServerConfiguration.UserAuthBanner? = nil) -> SSHMultiMessage {
+    private static func transform(_ result: NIOSSHUserAuthenticationResponseMessage, connectionAttributes: SSHConnectionStateMachine.Attributes?, username: String, banner: SSHServerConfiguration.UserAuthBanner? = nil) -> SSHMultiMessage {
         switch result {
         case .success:
+            // Recorded only on success, so the property never reports a name
+            // that failed to authenticate.
+            connectionAttributes?.username = username
+
             if let banner = banner {
                 // Send banner bundled with auth success to avoid leaking any information to unauthenticated clients.
                 // Note that this is by no means the only option according to RFC 4252

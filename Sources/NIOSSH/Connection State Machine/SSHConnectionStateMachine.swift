@@ -99,7 +99,8 @@ struct SSHConnectionStateMachine {
             }
         }
 
-        mutating func processInboundMessage(allocator: ByteBufferAllocator,
+        mutating func processInboundMessage(connectionAttributes: Attributes,
+                                            allocator: ByteBufferAllocator,
                                             loop: EventLoop) throws -> StateMachineInboundProcessResult? {
             switch self {
             case .idle:
@@ -305,7 +306,7 @@ struct SSHConnectionStateMachine {
                         return result
 
                     case .userAuthRequest(let message):
-                        let result = try state.receiveUserAuthRequest(message)
+                        let result = try state.receiveUserAuthRequest(message, connectionAttributes: connectionAttributes)
                         self = .userAuthentication(state)
                         return result
 
@@ -729,6 +730,20 @@ struct SSHConnectionStateMachine {
     /// The state of this state machine.
     private var state: State
 
+    /// State that outlives the state transitions, because the value is set in
+    /// one state and read in another. A reference type so the operation that
+    /// accepts the auth request can record it without the enclosing state
+    /// machine being mutable at that point.
+    final class Attributes {
+        var username: String?
+    }
+
+    let attributes = Attributes()
+
+    /// The username that authenticated, once one has. Server-side: a client
+    /// never sees this because it is the one supplying it.
+    var username: String? { self.attributes.username }
+
     init(role: SSHConnectionRole, protectionSchemes: [NIOSSHTransportProtection.Type] = Constants.bundledTransportProtectionSchemes) {
         self.state = .idle(IdleState(role: role, protectionSchemes: protectionSchemes))
     }
@@ -750,7 +765,7 @@ struct SSHConnectionStateMachine {
 
     mutating func processInboundMessage(allocator: ByteBufferAllocator,
                                         loop: EventLoop) throws -> StateMachineInboundProcessResult? {
-        try self.state.processInboundMessage(allocator: allocator, loop: loop)
+        try self.state.processInboundMessage(connectionAttributes: self.attributes, allocator: allocator, loop: loop)
     }
 
     mutating func processOutboundMessage(_ message: SSHMessage,

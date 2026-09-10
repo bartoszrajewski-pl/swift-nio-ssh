@@ -63,6 +63,12 @@ public final class NIOSSHHandler {
     ///     - role: The role of this channel in the connection, client or server.
     ///     - allocator: An allocator for `ByteBuffer`s
     ///     - inboundChildChannelInitializer: A callback that will be invoked whenever the remote peer attempts to construct a new SSH channel in a connection.
+    /// The username that authenticated on this connection, once one has.
+    ///
+    /// Server-side: a client is the one supplying the name, so this stays nil
+    /// there. Set only on successful authentication.
+    public var username: String? { self.stateMachine.username }
+
     public init(role: SSHConnectionRole, allocator: ByteBufferAllocator, inboundChildChannelInitializer: ((Channel, SSHChannelType) -> EventLoopFuture<Void>)?) {
         self.stateMachine = SSHConnectionStateMachine(role: role, protectionSchemes: role.transportProtectionSchemes)
         self.pendingWrite = false
