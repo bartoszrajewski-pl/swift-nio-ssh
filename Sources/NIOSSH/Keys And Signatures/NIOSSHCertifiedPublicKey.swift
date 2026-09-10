@@ -340,6 +340,14 @@ extension NIOSSHCertifiedPublicKey {
             return Self.p384KeyPrefix
         case .ecdsaP521:
             return Self.p521KeyPrefix
+        case .custom(let custom):
+            // A certificate over an application-supplied key type. NIOSSH does
+            // not know that algorithm's certificate name, so the bare key
+            // prefix is the best available answer; a peer expecting an
+            // OpenSSH-style "…-cert-v01@openssh.com" name will reject it. That
+            // is an interop limit, not a crash, which is the right trade for a
+            // value that can be driven by the remote side.
+            return custom.publicKeyPrefix.utf8
         case .certified:
             preconditionFailure("base key cannot be certified")
         }

@@ -36,6 +36,9 @@ extension NIOSSHSignature {
         case ecdsaP256(P256.Signing.ECDSASignature)
         case ecdsaP384(P384.Signing.ECDSASignature)
         case ecdsaP521(P521.Signing.ECDSASignature)
+        // Halyard/Citadel: a signature produced by an application-supplied
+        // algorithm registered through `NIOSSHAlgorithms`.
+        case custom(NIOSSHSignatureProtocol)
 
         internal enum RawBytes {
             case byteBuffer(ByteBuffer)
@@ -85,10 +88,13 @@ extension NIOSSHSignature.BackingSignature: Equatable {
             return lhs.rawRepresentation == rhs.rawRepresentation
         case (.ecdsaP521(let lhs), .ecdsaP521(let rhs)):
             return lhs.rawRepresentation == rhs.rawRepresentation
+        case (.custom(let lhs), .custom(let rhs)):
+            return lhs.rawRepresentation == rhs.rawRepresentation
         case (.ed25519, _),
              (.ecdsaP256, _),
              (.ecdsaP384, _),
-             (.ecdsaP521, _):
+             (.ecdsaP521, _),
+             (.custom, _):
             return false
         }
     }
@@ -109,6 +115,10 @@ extension NIOSSHSignature.BackingSignature: Hashable {
         case .ecdsaP521(let sig):
             hasher.combine(3)
             hasher.combine(sig.rawRepresentation)
+        case .custom(let sig):
+            hasher.combine(4)
+            hasher.combine(sig.signaturePrefix)
+            hasher.combine(sig.rawRepresentation)
         }
     }
 }
@@ -126,6 +136,12 @@ extension ByteBuffer {
             return self.writeECDSAP384Signature(baseSignature: sig)
         case .ecdsaP521(let sig):
             return self.writeECDSAP521Signature(baseSignature: sig)
+        case .custom(let sig):
+            // The custom algorithm owns its wire format; we only frame it with
+            // the prefix it declares.
+            var writtenBytes = self.writeSSHString(sig.signaturePrefix.utf8)
+            writtenBytes += sig.write(to: &self)
+            return writtenBytes
         }
     }
 
