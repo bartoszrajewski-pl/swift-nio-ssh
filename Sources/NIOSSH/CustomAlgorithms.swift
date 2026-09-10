@@ -156,3 +156,14 @@ private enum _CustomAlgorithms {
     nonisolated(unsafe) static var publicKeyAlgorithms = [NIOSSHPublicKeyProtocol.Type]()
     nonisolated(unsafe) static var signatures = [NIOSSHSignatureProtocol.Type]()
 }
+
+extension NIOSSHPublicKey {
+    /// Writes this key in SSH wire format, prefix included.
+    ///
+    /// A key exchange algorithm implemented outside this module has to put the
+    /// host key into the exchange hash, and cannot reach `writeSSHHostKey`.
+    @discardableResult
+    public func write(to buffer: inout ByteBuffer) -> Int {
+        buffer.writeSSHHostKey(self)
+    }
+}

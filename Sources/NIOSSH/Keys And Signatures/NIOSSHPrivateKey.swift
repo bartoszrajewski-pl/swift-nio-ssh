@@ -98,7 +98,11 @@ extension NIOSSHPrivateKey {
 }
 
 extension NIOSSHPrivateKey {
-    func sign<DigestBytes: Digest>(digest: DigestBytes) throws -> NIOSSHSignature {
+    /// Signs a digest.
+    ///
+    /// Public for the same reason as `NIOSSHPublicKey.isValidSignature`: a
+    /// key exchange algorithm outside this module signs the exchange hash.
+    public func sign<DigestBytes: Digest>(digest: DigestBytes) throws -> NIOSSHSignature {
         switch self.backingKey {
         case .ed25519(let key):
             let signature = try digest.withUnsafeBytes { ptr in

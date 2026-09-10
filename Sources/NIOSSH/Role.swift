@@ -46,4 +46,22 @@ public enum SSHConnectionRole {
             return configuration.transportProtectionSchemes
         }
     }
+
+    internal var maximumPacketSize: Int {
+        switch self {
+        case .client(let configuration):
+            return configuration.maximumPacketSize
+        case .server(let configuration):
+            return configuration.maximumPacketSize
+        }
+    }
+
+    internal var keyExchangeAlgorithms: [NIOSSHKeyExchangeAlgorithmProtocol.Type] {
+        switch self {
+        case .client(let configuration):
+            return configuration.keyExchangeAlgorithms
+        case .server(let configuration):
+            return configuration.keyExchangeAlgorithms
+        }
+    }
 }

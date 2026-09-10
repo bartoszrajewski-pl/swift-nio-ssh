@@ -26,6 +26,15 @@ public struct SSHClientConfiguration {
     /// Supported data encryption algorithms
     public var transportProtectionSchemes: [NIOSSHTransportProtection.Type]
 
+    /// The key exchange algorithms to offer, most preferred first. Defaults to
+    /// the ones NIOSSH bundles plus anything registered with
+    /// ``NIOSSHAlgorithms``.
+    public var keyExchangeAlgorithms: [NIOSSHKeyExchangeAlgorithmProtocol.Type] = []
+
+    /// The largest packet this side will accept, in bytes. Defaults to 128 KiB.
+    /// Raise it only for a peer that genuinely sends larger packets.
+    public var maximumPacketSize = SSHPacketParser.defaultMaximumPacketSize
+
     public init(userAuthDelegate: NIOSSHClientUserAuthenticationDelegate,
                 serverAuthDelegate: NIOSSHClientServerAuthenticationDelegate,
                 globalRequestDelegate: GlobalRequestDelegate? = nil) {

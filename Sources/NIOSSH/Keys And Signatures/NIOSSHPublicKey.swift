@@ -68,7 +68,11 @@ public struct NIOSSHPublicKey: Sendable, Hashable {
 extension NIOSSHPublicKey {
     /// Verifies that a given `NIOSSHSignature` was created by the holder of the private key associated with this
     /// public key.
-    internal func isValidSignature<DigestBytes: Digest>(_ signature: NIOSSHSignature, for digest: DigestBytes) -> Bool {
+    /// Verifies a signature over a digest.
+    ///
+    /// Public because an out-of-module key exchange algorithm has to check the
+    /// server's signature over the exchange hash itself.
+    public func isValidSignature<DigestBytes: Digest>(_ signature: NIOSSHSignature, for digest: DigestBytes) -> Bool {
         switch (self.backingKey, signature.backingSignature) {
         case (.ed25519(let key), .ed25519(let sig)):
             return digest.withUnsafeBytes { digestPtr in

@@ -103,7 +103,7 @@ struct SSHKeyExchangeStateMachine {
 
         return .init(
             cookie: rng.randomCookie(allocator: self.allocator),
-            keyExchangeAlgorithms: Self.supportedKeyExchangeAlgorithms,
+            keyExchangeAlgorithms: self.offeredKeyExchangeAlgorithms,
             serverHostKeyAlgorithms: self.supportedHostKeyAlgorithms,
             encryptionAlgorithmsClientToServer: encryptionAlgorithms,
             encryptionAlgorithmsServerToClient: encryptionAlgorithms,
@@ -369,13 +369,13 @@ struct SSHKeyExchangeStateMachine {
 
         switch self.role {
         case .client:
-            clientAlgorithms = Self.supportedKeyExchangeAlgorithms
+            clientAlgorithms = self.offeredKeyExchangeAlgorithms
             serverAlgorithms = peerKeyExchangeAlgorithms
             clientHostKeyAlgorithms = self.supportedHostKeyAlgorithms
             serverHostKeyAlgorithms = peerHostKeyAlgorithms
         case .server:
             clientAlgorithms = peerKeyExchangeAlgorithms
-            serverAlgorithms = Self.supportedKeyExchangeAlgorithms
+            serverAlgorithms = self.offeredKeyExchangeAlgorithms
             clientHostKeyAlgorithms = peerHostKeyAlgorithms
             serverHostKeyAlgorithms = self.supportedHostKeyAlgorithms
         }
@@ -447,7 +447,26 @@ struct SSHKeyExchangeStateMachine {
         }
     }
 
+    /// The algorithms this connection offers. A configuration that names any
+    /// replaces the default entirely — that is what makes it a configuration
+    /// rather than a suggestion — and an empty one means "use the defaults".
+    private var offeredKeyExchangeAlgorithms: [Substring] {
+        let configured = self.role.keyExchangeAlgorithms
+        guard !configured.isEmpty else { return Self.supportedKeyExchangeAlgorithms }
+        return configured.flatMap { $0.keyExchangeAlgorithmNames }
+    }
+
     private func exchangerForAlgorithm(_ algorithm: Substring) throws -> EllipticCurveKeyExchangeProtocol {
+        // A configured algorithm is tried first, so a configuration can pick a
+        // specific implementation of a name we also bundle.
+        for implementation in self.role.keyExchangeAlgorithms
+        where implementation.keyExchangeAlgorithmNames.contains(algorithm) {
+            return implementation.makeKeyExchanger(
+                ourRole: self.role,
+                previousSessionIdentifier: self.previousSessionIdentifier
+            )
+        }
+
         for implementation in Self.supportedKeyExchangeImplementations {
             if implementation.keyExchangeAlgorithmNames.contains(algorithm) {
                 return implementation.init(ourRole: self.role, previousSessionIdentifier: self.previousSessionIdentifier)
@@ -473,7 +492,7 @@ struct SSHKeyExchangeStateMachine {
     private func expectingIncorrectGuess(_ kexMessage: SSHMessage.KeyExchangeMessage) -> Bool {
         // A guess is wrong if the key exchange algorithm and/or the host key algorithm differ from our preference.
         kexMessage.firstKexPacketFollows && (
-            kexMessage.keyExchangeAlgorithms.first != Self.supportedKeyExchangeAlgorithms.first ||
+            kexMessage.keyExchangeAlgorithms.first != self.offeredKeyExchangeAlgorithms.first ||
                 kexMessage.serverHostKeyAlgorithms.first != self.supportedHostKeyAlgorithms.first
         )
     }
@@ -517,10 +536,10 @@ extension SSHKeyExchangeStateMachine {
         EllipticCurveKeyExchange<Curve25519.KeyAgreement.PrivateKey>.self,
     ]
 
-    /// What we offer, in preference order: our own first, then whatever the
-    /// application registered. Computed rather than stored, because
-    /// registration happens at run time — a `let` here would capture the list
-    /// before the application had said anything.
+    /// What we offer by default, in preference order: our own first, then
+    /// whatever the application registered. Computed rather than stored,
+    /// because registration happens at run time — a `let` here would capture
+    /// the list before the application had said anything.
     static var supportedKeyExchangeAlgorithms: [Substring] {
         supportedKeyExchangeImplementations.flatMap { $0.keyExchangeAlgorithmNames }
             + customKeyExchangeAlgorithms.flatMap { $0.keyExchangeAlgorithmNames }

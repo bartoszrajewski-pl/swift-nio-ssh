@@ -33,7 +33,19 @@ struct SSHPacketParser {
         self.buffer.readerIndex
     }
 
-    init(isServer: Bool, allocator: ByteBufferAllocator) {
+    /// The largest packet we will accept, in bytes.
+    ///
+    /// RFC 4253 requires all implementations to handle 35000; anything much
+    /// beyond that is a peer trying to make us allocate. Upstream applies no
+    /// bound at all, so a hostile server can name any length it likes.
+    internal static let defaultMaximumPacketSize = 1 << 17
+
+    private let maximumPacketSize: Int
+
+    init(isServer: Bool, allocator: ByteBufferAllocator, maximumPacketSize: Int = SSHPacketParser.defaultMaximumPacketSize) {
+        precondition(maximumPacketSize >= 35000, "Maximum packet size is below what RFC 4253 requires implementations to accept")
+        precondition(maximumPacketSize <= (1 << 24), "Maximum packet size is set abnormally high")
+        self.maximumPacketSize = maximumPacketSize
         self.isServer = isServer
         self.buffer = allocator.buffer(capacity: 0)
         self.state = .initialized
@@ -85,6 +97,10 @@ struct SSHPacketParser {
             }
             return nil
         case .cleartextWaitingForBytes(let length):
+            guard length < self.maximumPacketSize else {
+                throw NIOSSHError.invalidEncryptedPacketLength
+            }
+
             if let message = try self.parsePlaintext(length: length) {
                 self.state = .cleartextWaitingForLength
                 self.sequenceNumber &+= 1
@@ -94,6 +110,10 @@ struct SSHPacketParser {
         case .encryptedWaitingForLength(let protection):
             guard let length = try self.decryptLength(protection: protection) else {
                 return nil
+            }
+
+            guard length < self.maximumPacketSize else {
+                throw NIOSSHError.invalidEncryptedPacketLength
             }
 
             if let message = try self.parseCiphertext(length: length, protection: protection) {
