@@ -238,6 +238,10 @@ extension ByteBuffer {
             } else if bytesView.elementsEqual(NIOSSHSignature.ecdsaP521SignaturePrefix) {
                 return try buffer.readECDSAP521Signature()
             } else {
+                for type in customSignatures where bytesView.elementsEqual(type.signaturePrefix.utf8) {
+                    return NIOSSHSignature(backingSignature: .custom(try type.read(from: &buffer)))
+                }
+
                 // We don't know this signature type.
                 let signature = signatureIdentifierBytes.readString(length: signatureIdentifierBytes.readableBytes) ?? "<unknown signature>"
                 throw NIOSSHError.unknownSignature(algorithm: signature)

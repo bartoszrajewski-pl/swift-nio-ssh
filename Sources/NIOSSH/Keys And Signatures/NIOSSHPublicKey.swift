@@ -200,8 +200,15 @@ extension NIOSSHPublicKey {
         }
     }
 
-    internal static var knownAlgorithms: [String.UTF8View] {
+    internal static var bundledAlgorithms: [String.UTF8View] {
         [Self.ed25519PublicKeyPrefix, Self.ecdsaP384PublicKeyPrefix, Self.ecdsaP256PublicKeyPrefix, Self.ecdsaP521PublicKeyPrefix]
+    }
+
+    /// What we will negotiate: what we ship, plus whatever the application
+    /// registered. Read on every handshake, so registration has to happen
+    /// before connecting.
+    internal static var knownAlgorithms: [String.UTF8View] {
+        Self.bundledAlgorithms + customPublicKeyAlgorithms.map { $0.publicKeyPrefix.utf8 }
     }
 }
 
@@ -334,6 +341,11 @@ extension ByteBuffer {
             } else if keyIdentifierBytes.elementsEqual(NIOSSHPublicKey.ecdsaP521PublicKeyPrefix) {
                 return try buffer.readECDSAP521PublicKey()
             } else {
+                for type in customPublicKeyAlgorithms where keyIdentifierBytes.elementsEqual(type.publicKeyPrefix.utf8) {
+                    let publicKey = try type.read(from: &buffer)
+                    return NIOSSHPublicKey(backingKey: .custom(publicKey))
+                }
+
                 // We don't know this public key type. Maybe the certified keys do.
                 return try buffer.readCertifiedKeyWithoutKeyPrefix(keyIdentifierBytes).map(NIOSSHPublicKey.init)
             }

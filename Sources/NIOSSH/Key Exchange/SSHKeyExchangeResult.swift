@@ -19,11 +19,16 @@ import NIOCore
 ///
 /// A round of key exchange generates a number of keys and also generates an exchange hash.
 /// This exchange hash is used for a number of purposes.
-struct KeyExchangeResult {
+public struct KeyExchangeResult {
     /// The session ID to use for this connection. Will be static across the lifetime of a connection.
-    var sessionID: ByteBuffer
+    public var sessionID: ByteBuffer
 
-    var keys: NIOSSHSessionKeys
+    public var keys: NIOSSHSessionKeys
+
+    public init(sessionID: ByteBuffer, keys: NIOSSHSessionKeys) {
+        self.sessionID = sessionID
+        self.keys = keys
+    }
 }
 
 extension KeyExchangeResult: Equatable {}
