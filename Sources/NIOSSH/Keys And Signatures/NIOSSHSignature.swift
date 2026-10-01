@@ -100,6 +100,17 @@ extension NIOSSHSignature.BackingSignature: Equatable {
     }
 }
 
+extension NIOSSHSignature {
+    /// The algorithm name a custom signature declares, or nil for the built-in
+    /// ones, whose name is always their key's prefix.
+    internal var customAlgorithmName: String? {
+        if case .custom(let sig) = self.backingSignature {
+            return sig.signaturePrefix
+        }
+        return nil
+    }
+}
+
 extension NIOSSHSignature.BackingSignature: Hashable {
     func hash(into hasher: inout Hasher) {
         switch self {

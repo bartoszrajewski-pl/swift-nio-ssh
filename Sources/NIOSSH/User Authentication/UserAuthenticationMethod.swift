@@ -246,7 +246,8 @@ extension SSHMessage.UserAuthRequestMessage {
                 sessionIdentifier: sessionID,
                 userName: self.username,
                 serviceName: self.service,
-                publicKey: privateKeyRequest.publicKey
+                publicKey: privateKeyRequest.publicKey,
+                algorithmName: privateKeyRequest.privateKey.userAuthAlgorithmName
             )
             let signature = try privateKeyRequest.privateKey.sign(dataToSign)
             self.method = .publicKey(.known(key: privateKeyRequest.publicKey, signature: signature))

@@ -140,6 +140,16 @@ extension NIOSSHPrivateKey {
         }
     }
 
+    /// The algorithm name a user authentication request with this key carries
+    /// in place of the public key's prefix, or nil to use the prefix. Only a
+    /// custom key can override it; a built-in key (or a certificate offered
+    /// for it, whose prefix is the certificate's) always signs as its prefix.
+    internal var userAuthAlgorithmName: String? {
+        guard case .custom(let key) = self.backingKey else { return nil }
+        let name = type(of: key).userAuthAlgorithmName
+        return name == key.keyPrefix ? nil : name
+    }
+
     func sign(_ payload: UserAuthSignablePayload) throws -> NIOSSHSignature {
         switch self.backingKey {
         case .ed25519(let key):

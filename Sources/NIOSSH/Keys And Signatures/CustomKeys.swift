@@ -75,11 +75,25 @@ public protocol NIOSSHPrivateKeyProtocol {
     /// The returned value MUST NOT overlap with other private key implementations or a specifications that the private key does not implement.
     static var keyPrefix: String { get }
 
+    /// The algorithm name this key signs user authentication as, when it is not
+    /// `keyPrefix`. RSA is the case that needs it: the key blob still says
+    /// "ssh-rsa", but the signature is "rsa-sha2-256" or "rsa-sha2-512"
+    /// (RFC 8332), and OpenSSH 8.8 and newer refuse "ssh-rsa" (SHA-1)
+    /// signatures by default. The signatures this key returns MUST carry this
+    /// name as their `signaturePrefix`. Defaults to `keyPrefix`.
+    static var userAuthAlgorithmName: String { get }
+
     /// A public key instance that is able to verify signatures that are created using this private key.
     var publicKey: NIOSSHPublicKeyProtocol { get }
 
     /// Creates a signature, proving that `data` has been sent by the holder of this private key, and can be verified by `publicKey`.
     func signature<D: DataProtocol>(for data: D) throws -> NIOSSHSignatureProtocol
+}
+
+extension NIOSSHPrivateKeyProtocol {
+    public static var userAuthAlgorithmName: String {
+        Self.keyPrefix
+    }
 }
 
 internal extension NIOSSHPrivateKeyProtocol {
